@@ -1,11 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
   <title>GhostLock Dashboard</title>
   <style>
-    body { font-family: Arial; padding: 20px; }
-    input, button { margin: 5px; padding: 8px; }
-    .card { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+    h1, h2 { color: #333; }
+    input, button { margin: 5px 5px 5px 0; padding: 8px; font-size: 14px; }
+    .card { border: 1px solid #ccc; border-radius: 8px; padding: 10px; margin: 10px 0; background: #fff; }
+    .bet-buttons button { margin-right: 5px; }
+    #bets { margin-top: 20px; }
+    #ai-picks { margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -27,26 +32,36 @@
 <h2>Bet Tracker</h2>
 <div id="bets"></div>
 
+<h2>AI Picks</h2>
+<button onclick="generateAIPicks()">Generate AI Picks</button>
+<div id="ai-picks"></div>
+
 <script>
 let bets = [];
 let startingBankroll = 1000;
 
+// Unit calculation
 function getUnitSize() {
-  return document.getElementById("bankroll").value * 0.01;
+  return Number(document.getElementById("bankroll").value) * 0.01;
 }
 
+// Confidence to units
 function getUnits(conf) {
-  if (conf == 5) return 5;
-  if (conf == 4) return 3.5;
-  if (conf == 3) return 2;
-  if (conf == 2) return 1;
+  conf = Number(conf);
+  if (conf === 5) return 5;
+  if (conf === 4) return 3.5;
+  if (conf === 3) return 2;
+  if (conf === 2) return 1;
   return 0.5;
 }
 
+// Add a bet
 function addBet() {
-  const game = document.getElementById("game").value;
-  const pick = document.getElementById("pick").value;
+  const game = document.getElementById("game").value.trim();
+  const pick = document.getElementById("pick").value.trim();
   const confidence = document.getElementById("confidence").value;
+
+  if (!game || !pick) return alert("Enter game and pick.");
 
   const units = getUnits(confidence);
   const amount = units * getUnitSize();
@@ -62,8 +77,11 @@ function addBet() {
   });
 
   render();
+  document.getElementById("game").value = "";
+  document.getElementById("pick").value = "";
 }
 
+// Settle bet
 function settle(id, result) {
   const bankrollInput = document.getElementById("bankroll");
   let bankroll = Number(bankrollInput.value);
@@ -80,6 +98,7 @@ function settle(id, result) {
   render();
 }
 
+// Render bets
 function render() {
   const container = document.getElementById("bets");
   container.innerHTML = "";
@@ -97,12 +116,14 @@ function render() {
         ${b.pick}<br/>
         ${b.confidence}⭐ | ${b.units}u | $${b.amount.toFixed(2)}<br/>
         Status: ${b.result}<br/>
-        ${
-          b.result === "pending"
-            ? `<button onclick="settle(${b.id}, 'win')">Win</button>
-               <button onclick="settle(${b.id}, 'loss')">Loss</button>`
-            : ""
-        }
+        <div class="bet-buttons">
+          ${
+            b.result === "pending"
+              ? `<button onclick="settle(${b.id}, 'win')">Win</button>
+                 <button onclick="settle(${b.id}, 'loss')">Loss</button>`
+              : ""
+          }
+        </div>
       </div>
     `;
   });
@@ -116,6 +137,36 @@ function render() {
   document.getElementById("profit").innerText = profit.toFixed(2);
   document.getElementById("winrate").innerText = winrate;
 }
+
+// AI pick generator (mock)
+function generateAIPicks() {
+  const picks = [
+    "Team A ML",
+    "Team B -1.5",
+    "Over 7.5 Total",
+    "Team C +1.5",
+    "Team D ML"
+  ];
+
+  const container = document.getElementById("ai-picks");
+  container.innerHTML = picks.map(p => `<div>${p}</div>`).join("");
+}
+
+// Save/load from localStorage
+window.addEventListener("load", () => {
+  const saved = localStorage.getItem("bets");
+  if (saved) bets = JSON.parse(saved);
+
+  const savedBankroll = localStorage.getItem("bankroll");
+  if (savedBankroll) document.getElementById("bankroll").value = savedBankroll;
+
+  render();
+});
+
+window.addEventListener("beforeunload", () => {
+  localStorage.setItem("bets", JSON.stringify(bets));
+  localStorage.setItem("bankroll", document.getElementById("bankroll").value);
+});
 </script>
 
 </body>
