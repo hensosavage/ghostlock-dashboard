@@ -1,21 +1,31 @@
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 export default function GhostLockDashboard() {
   const [bankroll, setBankroll] = useState(1000);
-  const [unitSize, setUnitSize] = useState(10);
+  const [unitPercent, setUnitPercent] = useState(1);
   const [bets, setBets] = useState([]);
   const [game, setGame] = useState("");
   const [pick, setPick] = useState("");
   const [confidence, setConfidence] = useState(3);
 
+  const unitSize = bankroll * (unitPercent / 100);
+
+  const getUnits = (conf) => {
+    if (conf === 5) return 5;
+    if (conf === 4) return 3.5;
+    if (conf === 3) return 2;
+    if (conf === 2) return 1;
+    return 0.5;
+  };
+
   const addBet = () => {
-    const units = confidence === 5 ? 5 : confidence === 4 ? 3.5 : confidence === 3 ? 2 : confidence === 2 ? 1 : 0.5;
+    if (!game || !pick) return;
+
+    const units = getUnits(confidence);
     const amount = units * unitSize;
 
     const newBet = {
+      id: Date.now(),
       game,
       pick,
       confidence,
@@ -24,65 +34,93 @@ export default function GhostLockDashboard() {
       result: "pending",
     };
 
-    setBets([...bets, newBet]);
+    setBets([newBet, ...bets]);
     setGame("");
     setPick("");
   };
 
+  const settleBet = (id, result) => {
+    const updated = bets.map((bet) => {
+      if (bet.id === id && bet.result === "pending") {
+        if (result === "win") {
+          setBankroll((prev) => prev + bet.amount);
+        } else {
+          setBankroll((prev) => prev - bet.amount);
+        }
+        return { ...bet, result };
+      }
+      return bet;
+    });
+
+    setBets(updated);
+  };
+
+  const totalProfit = bankroll - 1000;
+  const wins = bets.filter((b) => b.result === "win").length;
+  const losses = bets.filter((b) => b.result === "loss").length;
+  const winRate = bets.length ? ((wins / (wins + losses)) * 100).toFixed(1) : 0;
+
   return (
-    <div className="p-6 grid gap-6">
-      <h1 className="text-2xl font-bold">GhostLock Dashboard</h1>
+    <div style={{ padding: 20, fontFamily: "sans-serif" }}>
+      <h1>GhostLock Dashboard</h1>
 
-      <Card>
-        <CardContent className="p-4 grid gap-3">
-          <h2 className="font-semibold">Bankroll Settings</h2>
-          <Input
-            type="number"
-            value={bankroll}
-            onChange={(e) => setBankroll(Number(e.target.value))}
-            placeholder="Bankroll"
-          />
-          <Input
-            type="number"
-            value={unitSize}
-            onChange={(e) => setUnitSize(Number(e.target.value))}
-            placeholder="Unit Size"
-          />
-        </CardContent>
-      </Card>
+      <div style={{ marginBottom: 20 }}>
+        <h2>Bankroll</h2>
+        <input
+          type="number"
+          value={bankroll}
+          onChange={(e) => setBankroll(Number(e.target.value))}
+        />
+        <p>Unit Size: ${unitSize.toFixed(2)}</p>
+        <p>Profit/Loss: ${totalProfit.toFixed(2)}</p>
+        <p>Win Rate: {winRate}%</p>
+      </div>
 
-      <Card>
-        <CardContent className="p-4 grid gap-3">
-          <h2 className="font-semibold">Add New Bet</h2>
-          <Input value={game} onChange={(e) => setGame(e.target.value)} placeholder="Game" />
-          <Input value={pick} onChange={(e) => setPick(e.target.value)} placeholder="Pick" />
-          <Input
-            type="number"
-            value={confidence}
-            onChange={(e) => setConfidence(Number(e.target.value))}
-            min={1}
-            max={5}
-          />
-          <Button onClick={addBet}>Add Bet</Button>
-        </CardContent>
-      </Card>
+      <div style={{ marginBottom: 20 }}>
+        <h2>Add Bet</h2>
+        <input
+          placeholder="Game"
+          value={game}
+          onChange={(e) => setGame(e.target.value)}
+        />
+        <input
+          placeholder="Pick"
+          value={pick}
+          onChange={(e) => setPick(e.target.value)}
+        />
+        <input
+          type="number"
+          min={1}
+          max={5}
+          value={confidence}
+          onChange={(e) => setConfidence(Number(e.target.value))}
+        />
+        <button onClick={addBet}>Add Bet</button>
+      </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <h2 className="font-semibold mb-3">Bet Tracker</h2>
-          <div className="grid gap-2">
-            {bets.map((bet, index) => (
-              <div key={index} className="p-3 border rounded-xl">
-                <p><strong>{bet.game}</strong></p>
-                <p>{bet.pick}</p>
-                <p>Confidence: {bet.confidence}⭐</p>
-                <p>Units: {bet.units}</p>
-                <p>Amount: ${bet.amount}</p>
-              </div>
-            ))}
+      <div>
+        <h2>Bet Tracker</h2>
+        {bets.map((bet) => (
+          <div key={bet.id} style={{ border: "1px solid #ccc", padding: 10, marginBottom: 10 }}>
+            <p><strong>{bet.game}</strong></p>
+            <p>{bet.pick}</p>
+            <p>{bet.confidence}⭐ | {bet.units}u | ${bet.amount.toFixed(2)}</p>
+            <p>Status: {bet.result}</p>
+            {bet.result === "pending" && (
+              <>
+                <button onClick={() => settleBet(bet.id, "win")}>Win</button>
+                <button onClick={() => settleBet(bet.id, "loss")}>Loss</button>
+              </>
+            )}
           </div>
-        </CardContent>
-      </Card>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 30 }}>
+        <h2>GhostLock AI (Manual Input)</h2>
+        <p>Paste analysis prompt into ChatGPT/Claude and log picks here.</p>
+        <button onClick={() => navigator.clipboard.writeText("Use GhostLock AI system to analyze today's games with confidence ratings and unit sizing.")}>Copy AI Prompt</button>
+      </div>
     </div>
   );
 }
